@@ -71,3 +71,38 @@ func TestColor(t *testing.T) {
 	assert.InDelta(t, float64(0.1875), lerped.B, 0.0001, "Lerp: Blue component mismatch")
 	assert.InDelta(t, float64(0.75), lerped.A, 0.0001, "Lerp: Alpha component mismatch")
 }
+
+func TestNewColorAny(t *testing.T) {
+	tests := []struct {
+		name  string
+		input interface{}
+		want  mathf.Color
+	}{
+		{"short hash", "#1aF", mathf.NewColorRGBAi(0x11, 0xaa, 0xff, 0xff)},
+		{"hash RGB", "#12abEF", mathf.NewColorRGBAi(0x12, 0xab, 0xef, 0xff)},
+		{"lowercase 0x RGB", "0x12abEF", mathf.NewColorRGBAi(0x12, 0xab, 0xef, 0xff)},
+		{"uppercase 0X RGB", "0X12abEF", mathf.NewColorRGBAi(0x12, 0xab, 0xef, 0xff)},
+		{"hash alpha", "#0312abEF", mathf.NewColorRGBAi(0x12, 0xab, 0xef, 0x03)},
+		{"0x alpha", "0x03FFFF00", mathf.NewColorRGBAi(0xff, 0xff, 0x00, 0x03)},
+		{"integer RGB", 0x12abef, mathf.NewColorRGBAi(0x12, 0xab, 0xef, 0xff)},
+		{"integer alpha", 0x0312abef, mathf.NewColorRGBAi(0x12, 0xab, 0xef, 0x03)},
+		{"float alpha", float64(0x0312abef), mathf.NewColorRGBAi(0x12, 0xab, 0xef, 0x03)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := mathf.NewColorAny(tt.input)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestNewColorAnyRejectsInvalidHex(t *testing.T) {
+	for _, input := range []string{"", "12abef", "0x12", "#12345", "0xGG0000"} {
+		t.Run(input, func(t *testing.T) {
+			_, err := mathf.NewColorAny(input)
+			assert.Error(t, err)
+		})
+	}
+}
