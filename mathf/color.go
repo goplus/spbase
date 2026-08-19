@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"strings"
 
 	"golang.org/x/image/colornames"
 )
@@ -243,17 +244,24 @@ func parseColor(s interface{}) (Color, error) {
 		return Color{}, errors.New("color is nil")
 	}
 	if c, ok := s.(int); ok {
-		return NewColorRGBAi(uint8(c>>16), uint8((c>>8)&0xff), uint8(c&0xff), 0xff), nil
+		return parseNumericColor(c), nil
 	}
 	if f, ok := s.(float64); ok {
-		c := int(f)
-		return NewColorRGBAi(uint8(c>>16), uint8((c>>8)&0xff), uint8(c&0xff), 0xff), nil
+		return parseNumericColor(int(f)), nil
 	}
 	ss, ok := s.(string)
 	if !ok {
 		return Color{}, errUnsupportedColorFormat
 	}
 	return parseHexColor(ss)
+}
+
+func parseNumericColor(c int) Color {
+	a := uint8(0xff)
+	if alpha := uint8(c >> 24); alpha != 0 {
+		a = alpha
+	}
+	return NewColorRGBAi(uint8(c>>16), uint8(c>>8), uint8(c), a)
 }
 
 func parseHexColor(s string) (Color, error) {
@@ -263,7 +271,12 @@ func parseHexColor(s string) (Color, error) {
 		return clr, nil
 	}
 
-	if s == "" || s[0] != '#' {
+	switch {
+	case strings.HasPrefix(s, "#"):
+		s = s[1:]
+	case strings.HasPrefix(s, "0x"), strings.HasPrefix(s, "0X"):
+		s = s[2:]
+	default:
 		return Color{}, errInvalidColorFormat
 	}
 	var err error
@@ -282,14 +295,19 @@ func parseHexColor(s string) (Color, error) {
 	}
 	var r, g, b, a uint8 = 0, 0, 0, 0xff
 	switch len(s) {
-	case 7:
-		r = hexToByte(s[1])<<4 + hexToByte(s[2])
-		g = hexToByte(s[3])<<4 + hexToByte(s[4])
-		b = hexToByte(s[5])<<4 + hexToByte(s[6])
-	case 4:
-		r = hexToByte(s[1]) * 17
-		g = hexToByte(s[2]) * 17
-		b = hexToByte(s[3]) * 17
+	case 8: // AARRGGBB
+		a = hexToByte(s[0])<<4 + hexToByte(s[1])
+		r = hexToByte(s[2])<<4 + hexToByte(s[3])
+		g = hexToByte(s[4])<<4 + hexToByte(s[5])
+		b = hexToByte(s[6])<<4 + hexToByte(s[7])
+	case 6: // RRGGBB
+		r = hexToByte(s[0])<<4 + hexToByte(s[1])
+		g = hexToByte(s[2])<<4 + hexToByte(s[3])
+		b = hexToByte(s[4])<<4 + hexToByte(s[5])
+	case 3: // RGB
+		r = hexToByte(s[0]) * 17
+		g = hexToByte(s[1]) * 17
+		b = hexToByte(s[2]) * 17
 	default:
 		err = errInvalidColorFormat
 	}
